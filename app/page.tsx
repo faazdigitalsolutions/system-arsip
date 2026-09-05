@@ -351,7 +351,7 @@ export default function HomePage() {
           )}
           {tab === "laporan" && <LaporanView archives={archives} />}
           {tab === "riwayat" && <RiwayatView />}
-          {tab === "pengguna" && <PenggunaView />}
+          {tab === "pengguna" && <PenggunaView session={session} />}
           {tab === "pengaturan" && <PengaturanView />}
 
           <footer className="text-center text-xs text-slate-400 py-6">

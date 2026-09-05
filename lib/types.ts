@@ -73,6 +73,7 @@ export interface User {
   role: UserRole;
   active: boolean;
   created_at: string;
+  password?: string | null;
 }
 
 export interface AppSettings {

@@ -3,9 +3,9 @@ import { supabase } from "./supabase";
 import type { User, UserRole } from "./types";
 
 export const MOCK_USERS: User[] = [
-  { id: "u1", name: "Andi Wijaya", email: "andi@ohsung-ei.co.id", role: "Admin", active: true, created_at: new Date().toISOString() },
-  { id: "u2", name: "Siti Rahayu", email: "siti@ohsung-ei.co.id", role: "Staff", active: true, created_at: new Date().toISOString() },
-  { id: "u3", name: "Budi Santoso", email: "budi@ohsung-ei.co.id", role: "Viewer", active: false, created_at: new Date().toISOString() },
+  { id: "u1", name: "Andi Wijaya", email: "andi@ohsung-ei.co.id", role: "Admin", active: true, password: "admin123", created_at: new Date().toISOString() },
+  { id: "u2", name: "Siti Rahayu", email: "siti@ohsung-ei.co.id", role: "Staff", active: true, password: "staff123", created_at: new Date().toISOString() },
+  { id: "u3", name: "Budi Santoso", email: "budi@ohsung-ei.co.id", role: "Viewer", active: false, password: null, created_at: new Date().toISOString() },
 ];
 
 export async function fetchUsers(): Promise<User[]> {
@@ -22,7 +22,7 @@ export async function upsertUser(u: Partial<User> & { name: string; email: strin
   if (u.id) {
     const { error } = await supabase
       .from("users")
-      .update({ name: u.name, email: u.email, role: u.role, active: u.active ?? true })
+      .update({ name: u.name, email: u.email, role: u.role, active: u.active ?? true, password: u.password ?? null })
       .eq("id", u.id);
     if (!error) return { ...u, id: u.id } as User;
     // Fallback: update MOCK_USERS in memory
@@ -34,6 +34,7 @@ export async function upsertUser(u: Partial<User> & { name: string; email: strin
         email: u.email,
         role: u.role,
         active: u.active ?? true,
+        password: u.password ?? MOCK_USERS[idx].password,
       };
       return MOCK_USERS[idx];
     }
@@ -41,7 +42,7 @@ export async function upsertUser(u: Partial<User> & { name: string; email: strin
   } else {
     const { data, error } = await supabase
       .from("users")
-      .insert({ name: u.name, email: u.email, role: u.role, active: u.active ?? true })
+      .insert({ name: u.name, email: u.email, role: u.role, active: u.active ?? true, password: u.password ?? null })
       .select()
       .single();
     if (!error && data) return data as User;
@@ -52,6 +53,7 @@ export async function upsertUser(u: Partial<User> & { name: string; email: strin
       email: u.email,
       role: u.role,
       active: u.active ?? true,
+      password: u.password ?? null,
       created_at: new Date().toISOString(),
     };
     MOCK_USERS.unshift(newUser);

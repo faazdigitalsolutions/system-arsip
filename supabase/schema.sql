@@ -69,6 +69,7 @@ create table if not exists public.users (
   email      text        not null,
   role       text        not null default 'Staff' check (role in ('Admin','Staff','Viewer')),
   active     boolean     default true,
+  password   text,
   created_at timestamptz not null default now()
 );
 
@@ -85,7 +86,6 @@ create table if not exists public.app_settings (
   logo_url        text,
   logo_path       text,
    max_upload_mb   int,
-   login_password  text default 'demo',
    updated_at      timestamptz default now()
 );
 

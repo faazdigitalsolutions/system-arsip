@@ -1,22 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import { Archive, LogIn, ShieldCheck, User as UserIcon, X } from "lucide-react";
+import { Archive, LogIn, ShieldCheck, User as UserIcon, X, Eye, EyeOff } from "lucide-react";
 import { MOCK_USERS } from "@/lib/users";
-import { loadSettingsLocal } from "@/lib/settings";
 import { login, type AuthSession } from "@/lib/auth";
 
 export function LoginView({ onLogin }: { onLogin: (s: AuthSession) => void }) {
   const [selectedId, setSelectedId] = useState<string>(MOCK_USERS[0]?.id ?? "");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  const settings = loadSettingsLocal();
-  const passwordEnabled = !!settings.login_password;
+  const selectedUser = MOCK_USERS.find((m) => m.id === selectedId);
+  const passwordRequired = !!selectedUser?.password;
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
     setErr(null);
+
     const u = MOCK_USERS.find((m) => m.id === selectedId);
     if (!u) {
       setErr("Pengguna tidak ditemukan.");
@@ -26,13 +27,10 @@ export function LoginView({ onLogin }: { onLogin: (s: AuthSession) => void }) {
       setErr("Akun ini non-aktif. Hubungi Admin.");
       return;
     }
-    if (passwordEnabled && password !== settings.login_password) {
-      setErr("Password salah.");
-      return;
-    }
-    const session = login(selectedId);
+
+    const session = login(selectedId, passwordRequired ? password : undefined);
     if (!session) {
-      setErr("Login gagal.");
+      setErr(passwordRequired ? "Password salah." : "Login gagal.");
       return;
     }
     onLogin(session);
@@ -67,7 +65,11 @@ export function LoginView({ onLogin }: { onLogin: (s: AuthSession) => void }) {
                     type="button"
                     key={u.id}
                     disabled={!u.active}
-                    onClick={() => setSelectedId(u.id)}
+                    onClick={() => {
+                      setSelectedId(u.id);
+                      setPassword("");
+                      setErr(null);
+                    }}
                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border text-left transition ${
                       active
                         ? "border-violet-400 bg-violet-50 dark:bg-violet-900/20"
@@ -107,18 +109,28 @@ export function LoginView({ onLogin }: { onLogin: (s: AuthSession) => void }) {
             </div>
           </div>
 
-          {passwordEnabled && (
+          {passwordRequired && (
             <div>
               <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
                 Password
               </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Masukkan password"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100"
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Masukkan password"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                  title={showPassword ? "Sembunyikan password" : "Lihat password"}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
           )}
 

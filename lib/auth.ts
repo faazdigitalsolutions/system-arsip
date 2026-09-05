@@ -12,6 +12,11 @@ export interface AuthSession {
   loggedInAt: string;
 }
 
+function stripPassword(u: User): User {
+  const { password, ...rest } = u;
+  return rest;
+}
+
 export function getSession(): AuthSession | null {
   if (typeof window === "undefined") return null;
   try {
@@ -23,10 +28,19 @@ export function getSession(): AuthSession | null {
   }
 }
 
-export function login(userId: string): AuthSession | null {
+export function login(userId: string, password?: string): AuthSession | null {
   const user = MOCK_USERS.find((u) => u.id === userId && u.active);
   if (!user) return null;
-  const session: AuthSession = { user, loggedInAt: new Date().toISOString() };
+
+  // Jika user punya password, wajib validasi
+  if (user.password) {
+    if (!password || password !== user.password) return null;
+  }
+
+  const session: AuthSession = {
+    user: stripPassword(user),
+    loggedInAt: new Date().toISOString(),
+  };
   try {
     window.localStorage.setItem(SESSION_KEY, JSON.stringify(session));
   } catch {}
