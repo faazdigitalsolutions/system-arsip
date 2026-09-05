@@ -13,6 +13,7 @@ export interface AppSettings {
   logo_url: string | null;
   logo_path: string | null;
   max_upload_mb: number;
+  login_password: string;
   updated_at?: string;
 }
 
@@ -27,6 +28,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   logo_url: null,
   logo_path: null,
   max_upload_mb: 25,
+  login_password: "demo",
 };
 
 const LS_KEY = "app_settings_v1";

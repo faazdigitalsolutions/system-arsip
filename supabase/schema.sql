@@ -84,8 +84,9 @@ create table if not exists public.app_settings (
   address         text,
   logo_url        text,
   logo_path       text,
-  max_upload_mb   int,
-  updated_at      timestamptz default now()
+   max_upload_mb   int,
+   login_password  text default 'demo',
+   updated_at      timestamptz default now()
 );
 
 -- Seed app_settings

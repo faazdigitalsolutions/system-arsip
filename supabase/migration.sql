@@ -42,7 +42,13 @@ DROP POLICY IF EXISTS "activity_logs all" ON public.activity_logs;
 CREATE POLICY "activity_logs all"
   ON public.activity_logs FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
 
--- 5) Bucket storage (kalau belum ada)
+-- 5) Tambah kolom login_password ke app_settings (untuk proteksi login)
+ALTER TABLE public.app_settings
+  ADD COLUMN IF NOT EXISTS login_password text DEFAULT 'demo';
+
+UPDATE public.app_settings SET login_password = 'demo' WHERE login_password IS NULL;
+
+-- 6) Bucket storage (kalau belum ada)
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('dokumen-arsip', 'dokumen-arsip', true)
 ON CONFLICT (id) DO NOTHING;

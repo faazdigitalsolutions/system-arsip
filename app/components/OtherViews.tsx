@@ -10,9 +10,12 @@ import {
   Circle,
   ChevronDown,
   Edit3,
+  Eye,
+  EyeOff,
   ExternalLink,
   FileText,
   History,
+  Key,
   Loader2,
   Plus,
   RotateCcw,
@@ -912,6 +915,10 @@ export function PengaturanView() {
   const [checking, setChecking] = useState(false);
   const [connected, setConnected] = useState<boolean | null>(null);
   const [latency, setLatency] = useState<number | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [savingPassword, setSavingPassword] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -987,6 +994,32 @@ export function PengaturanView() {
       setTimeout(() => setToast(null), 3000);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function savePassword() {
+    if (!newPassword.trim()) {
+      window.alert("Password tidak boleh kosong.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      window.alert("Konfirmasi password tidak cocok.");
+      return;
+    }
+    setSavingPassword(true);
+    try {
+      const saved = await saveSettingsRemote({ ...s, login_password: newPassword });
+      setS(saved);
+      dispatchSettings(saved);
+      setNewPassword("");
+      setConfirmPassword("");
+      setToast("Password berhasil diperbarui.");
+      setTimeout(() => setToast(null), 3000);
+    } catch (err: any) {
+      setToast(err?.message || "Gagal menyimpan password.");
+      setTimeout(() => setToast(null), 3000);
+    } finally {
+      setSavingPassword(false);
     }
   }
 
@@ -1132,6 +1165,70 @@ export function PengaturanView() {
               </p>
             )}
           </div>
+        </div>
+      </section>
+
+      {/* KARTU 3: PASSWORD LOGIN */}
+      <section className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-6 max-w-3xl">
+        <h2 className="font-semibold text-slate-900 dark:text-white mb-4">
+          Password Login
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Field label="Password Saat Ini" className="md:col-span-2">
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                value={s.login_password}
+                onChange={(e) => patch({ login_password: e.target.value })}
+                placeholder="Password login"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                title={showPassword ? "Sembunyikan password" : "Lihat password"}
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </Field>
+          <Field label="Password Baru" className="md:col-span-2">
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Ketik password baru"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100"
+              />
+            </div>
+          </Field>
+          <Field label="Konfirmasi Password Baru" className="md:col-span-2">
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Ulangi password baru"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100"
+              />
+            </div>
+          </Field>
+        </div>
+        <div className="mt-4 flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+          <Key className="w-4 h-4" />
+          <span>Kosongkan password untuk menonaktifkan proteksi login.</span>
+        </div>
+        <div className="mt-4 flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+          <button
+            onClick={savePassword}
+            disabled={savingPassword}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-sm font-medium hover:from-violet-700 hover:to-indigo-700 disabled:opacity-60"
+          >
+            {savingPassword ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            Simpan Password
+          </button>
         </div>
       </section>
 
