@@ -66,7 +66,7 @@ export async function clearActivityLogs() {
   const { error } = await supabase
     .from("activity_logs")
     .delete()
-    .neq("id", "");
+    .not("id", "is", null);
   if (error) throw new Error(error.message);
 }
 
