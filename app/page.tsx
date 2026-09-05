@@ -6,7 +6,9 @@ import {
   Archive,
   BarChart3,
   FileText,
+  HardDrive,
   History,
+  Layers,
   Loader2,
   LogOut,
   Moon,
@@ -122,6 +124,13 @@ export default function HomePage() {
 
   useEffect(() => {
     fetchArchives();
+  }, [fetchArchives]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchArchives();
+    }, 60000);
+    return () => clearInterval(interval);
   }, [fetchArchives]);
 
   async function softDelete(a: ArchiveRow) {
@@ -333,8 +342,55 @@ export default function HomePage() {
           </div>
         </header>
 
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {tab === "arsip" && (
+         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+           <style jsx-global>{`
+             @media print {
+               header { display: none !important; }
+               .no-print { display: none !important; }
+               .print-area { display: block !important; }
+             }
+           `}</style>
+
+           {tab === "arsip" && (
+             <div className="mb-6 no-print">
+               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                 {(() => {
+                   const active = archives.filter((a) => !a.deleted_at);
+                   const totalSize = active.reduce((acc, a) => acc + (a.file_size ?? 0), 0);
+                   const now = new Date();
+                   const thisMonth = active.filter((a) => {
+                     const d = new Date(a.created_at);
+                     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+                   }).length;
+                   const cats = new Set(active.map((a) => a.category));
+                   const formatBytes = (bytes?: number | null) => {
+                     if (bytes == null) return "-";
+                     if (bytes < 1024) return `${bytes} B`;
+                     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+                     return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+                   };
+                   const cards = [
+                     { label: "Total Arsip", value: active.length.toLocaleString("id-ID"), sub: "dokumen tersimpan", icon: <Archive className="w-5 h-5 text-white" />, iconClass: "from-violet-600 to-indigo-600" },
+                     { label: "Penyimpanan", value: formatBytes(totalSize), sub: "total ukuran file", icon: <HardDrive className="w-5 h-5 text-white" />, iconClass: "from-sky-500 to-cyan-500" },
+                     { label: "Bulan Ini", value: thisMonth.toLocaleString("id-ID"), sub: "unggahan terbaru", icon: <Layers className="w-5 h-5 text-white" />, iconClass: "from-emerald-500 to-teal-500" },
+                     { label: "Kategori", value: cats.size.toLocaleString("id-ID"), sub: "kategori terpakai", icon: <Archive className="w-5 h-5 text-white" />, iconClass: "from-amber-500 to-orange-500" },
+                   ];
+                   return cards.map((c) => (
+                     <div key={c.label} className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-4 flex items-center gap-3">
+                       <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${c.iconClass} flex items-center justify-center flex-shrink-0`}>
+                         {c.icon}
+                       </div>
+                       <div>
+                         <p className="text-2xl font-semibold text-slate-900 dark:text-white">{c.value}</p>
+                         <p className="text-xs text-slate-500 dark:text-slate-400">{c.label} · {c.sub}</p>
+                       </div>
+                     </div>
+                   ));
+                 })()}
+               </div>
+             </div>
+           )}
+           {tab === "arsip" && (
             <ArsipView
               archives={archives}
               loading={loading}

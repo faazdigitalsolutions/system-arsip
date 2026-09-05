@@ -16,11 +16,13 @@ import {
   FileText,
   Filter as FilterIcon,
   HardDrive,
+  Key,
   Layers,
   Loader2,
   Mail,
   Pencil,
   Plus,
+  Printer,
   Save,
   Search,
   Share2,
@@ -266,6 +268,10 @@ export function ArsipView({
     URL.revokeObjectURL(url);
   }
 
+  function exportPdf() {
+    window.print();
+  }
+
   const selectedCount = Object.values(selected).filter(Boolean).length;
   const allChecked = filtered.length > 0 && filtered.every((a) => selected[a.id]);
   const someChecked = selectedCount > 0 && !allChecked;
@@ -317,6 +323,29 @@ export function ArsipView({
     }
   }
 
+  const [bulkStatus, setBulkStatus] = useState<Status>("Draft");
+
+  async function handleBulkStatus() {
+    const items = filtered.filter((a) => selected[a.id]);
+    if (items.length === 0) return;
+    if (!window.confirm(`Ubah status ${items.length} dokumen yang dipilih ke "${bulkStatus}"?`))
+      return;
+    setDeletingId("__status__");
+    try {
+      for (const item of items) {
+        try {
+          if (onUpdate) await onUpdate(item, { status: bulkStatus });
+        } catch (err: any) {
+          console.error(`Update status gagal untuk ${item.id}:`, err);
+        }
+      }
+      setSelected({});
+      onChange();
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
@@ -331,21 +360,28 @@ export function ArsipView({
         <div className="flex items-center gap-2">
           <button
             onClick={exportExcel}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 no-print"
           >
             <Download className="w-4 h-4" />
             Ekspor Excel
           </button>
           <button
             onClick={exportCsv}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 no-print"
           >
             <Download className="w-4 h-4" />
             Ekspor CSV
           </button>
           <button
-            onClick={() => setOpenUpload(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-sm font-medium hover:from-violet-700 hover:to-indigo-700 shadow-sm"
+            onClick={exportPdf}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 no-print"
+          >
+            <Printer className="w-4 h-4" />
+            Cetak / PDF
+          </button>
+             <button
+               onClick={() => setOpenUpload(true)}
+               className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-sm font-medium hover:from-violet-700 hover:to-indigo-700 shadow-sm no-print"
           >
             <Plus className="w-4 h-4" />
             Unggah Arsip Baru
@@ -362,7 +398,7 @@ export function ArsipView({
       </section>
 
       {/* FILTER */}
-      <section className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-4 flex flex-col lg:flex-row gap-3 lg:items-center">
+        <section className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-4 flex flex-col lg:flex-row gap-3 lg:items-center no-print">
         <div className="relative flex-1">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
@@ -445,12 +481,35 @@ export function ArsipView({
                 <Trash2 className="w-3.5 h-3.5" />
               )}
               Hapus Terpilih
-            </button>
-            <button
-              onClick={() => {
-                const items = filtered.filter((a) => selected[a.id]);
-                if (items.length === 0) return;
-                const header = ["Judul", "Nomor Arsip", "Kategori", "Status", "Retensi", "Tanggal Upload", "Pengunggah", "URL"];
+             </button>
+             <div className="inline-flex items-center gap-2">
+               <select
+                 value={bulkStatus}
+                 onChange={(e) => setBulkStatus(e.target.value as Status)}
+                 className="text-xs rounded border border-slate-300 bg-white dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+               >
+                 {STATUSES.map((s) => (
+                   <option key={s} value={s}>{s}</option>
+                 ))}
+               </select>
+               <button
+                 onClick={handleBulkStatus}
+                 disabled={deletingId === "__status__"}
+                 className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 disabled:opacity-60"
+               >
+                 {deletingId === "__status__" ? (
+                   <Loader2 className="w-3 h-3.5 animate-spin" />
+                 ) : (
+                   <Save className="w-3.5 h-3.5" />
+                 )}
+                 Terapkan
+               </button>
+             </div>
+              <button
+                onClick={() => {
+                  const items = filtered.filter((a) => selected[a.id]);
+                  if (items.length === 0) return;
+                  const header = ["Judul", "Nomor Arsip", "Kategori", "Status", "Retensi", "Tanggal Upload", "Pengunggah", "URL"];
                 const rows = items.map((a) => [
                   a.title,
                   a.document_number,
@@ -653,12 +712,13 @@ export function ArsipView({
         )}
       </section>
 
-      {openUpload && (
-        <UploadModal
-          onClose={() => setOpenUpload(false)}
-          onUploaded={onChange}
-        />
-      )}
+       {openUpload && (
+         <UploadModal
+           archives={archives.filter((a) => !a.deleted_at)}
+           onClose={() => setOpenUpload(false)}
+           onUploaded={onChange}
+         />
+       )}
 
       {detailItem && (
         <DetailModal
@@ -682,23 +742,24 @@ export function ArsipView({
         />
       )}
 
-      {editItem && (
-        <EditModal
-          item={editItem}
-          onClose={() => setEditItem(null)}
-          onSaved={() => {
-            setEditItem(null);
-            onChange();
-          }}
-          onSave={async (patch) => {
-            if (onUpdate) await onUpdate(editItem, patch);
-            else {
-              await supabase.from("archives").update(patch).eq("id", editItem.id);
-              onChange();
-            }
-          }}
-        />
-      )}
+       {editItem && (
+         <EditModal
+           item={editItem}
+           archives={archives.filter((a) => !a.deleted_at)}
+           onClose={() => setEditItem(null)}
+           onSaved={() => {
+             setEditItem(null);
+             onChange();
+           }}
+           onSave={async (patch) => {
+             if (onUpdate) await onUpdate(editItem, patch);
+             else {
+               await supabase.from("archives").update(patch).eq("id", editItem.id);
+               onChange();
+             }
+           }}
+         />
+       )}
 
       {shareItem && (
         <ShareModal item={shareItem} onClose={() => setShareItem(null)} />
@@ -765,9 +826,11 @@ function formatBytesModal(bytes: number) {
 }
 
 export function UploadModal({
+  archives,
   onClose,
   onUploaded,
 }: {
+  archives: ArchiveRow[];
   onClose: () => void;
   onUploaded: () => void;
 }) {
@@ -801,6 +864,18 @@ export function UploadModal({
     if (!uTitle.trim() || !uNumber.trim())
       return setUError("Judul dan Nomor Arsip wajib diisi.");
     if (!uFile) return setUError("Silakan pilih file terlebih dahulu.");
+
+    const dup = archives.find(
+      (a) => a.document_number.trim().toLowerCase() === uNumber.trim().toLowerCase()
+    );
+    if (dup) {
+      if (
+        !window.confirm(
+          `Nomor arsip "${uNumber}" sudah dipakai oleh dokumen "${dup.title}".\nLanjutkan upload?`
+        )
+      )
+        return;
+    }
 
     const MAX_BYTES = 10 * 1024 * 1024;
     if (uFile.size > MAX_BYTES)
@@ -1452,11 +1527,13 @@ function PreviewDrawer({ item, onClose, onShare }: { item: ArchiveRow; onClose: 
 
 function EditModal({
   item,
+  archives,
   onClose,
   onSaved,
   onSave,
 }: {
   item: ArchiveRow;
+  archives: ArchiveRow[];
   onClose: () => void;
   onSaved: () => void;
   onSave: (patch: Partial<ArchiveRow>) => Promise<void>;
@@ -1477,6 +1554,19 @@ function EditModal({
     if (!title.trim() || !number.trim()) {
       setErr("Judul dan Nomor Arsip wajib diisi.");
       return;
+    }
+    const dup = archives.find(
+      (a) =>
+        a.id !== item.id &&
+        a.document_number.trim().toLowerCase() === number.trim().toLowerCase()
+    );
+    if (dup) {
+      if (
+        !window.confirm(
+          `Nomor arsip "${number}" sudah dipakai oleh dokumen "${dup.title}".\nLanjutkan?`
+        )
+      )
+        return;
     }
     setSaving(true);
     try {
@@ -1617,10 +1707,36 @@ function EditModal({
 
 function ShareModal({ item, onClose }: { item: ArchiveRow; onClose: () => void }) {
   const [copied, setCopied] = useState<"url" | "embed" | null>(null);
-  const url = item.file_url;
-  const embed = `<iframe src="${url}" width="100%" height="600" frameborder="0"></iframe>`;
-  const whatsapp = `https://wa.me/?text=${encodeURIComponent(`${item.title}\n${item.document_number}\n${url}`)}`;
-  const mailto = `mailto:?subject=${encodeURIComponent(`Arsip: ${item.title}`)}&body=${encodeURIComponent(`${item.document_number}\n${url}`)}`;
+  const [expiryDays, setExpiryDays] = useState<string>("");
+  const [sharedUrl, setSharedUrl] = useState<string | null>(null);
+  const [generating, setGenerating] = useState(false);
+
+  const publicUrl = item.file_url;
+  const effectiveUrl = sharedUrl ?? publicUrl;
+  const embed = `<iframe src="${effectiveUrl}" width="100%" height="600" frameborder="0"></iframe>`;
+  const whatsapp = `https://wa.me/?text=${encodeURIComponent(`${item.title}\n${item.document_number}\n${effectiveUrl}`)}`;
+  const mailto = `mailto:?subject=${encodeURIComponent(`Arsip: ${item.title}`)}&body=${encodeURIComponent(`${item.document_number}\n${effectiveUrl}`)}`;
+
+  async function generateSignedUrl() {
+    if (!expiryDays) return;
+    setGenerating(true);
+    try {
+      const { data, error } = await supabase.storage
+        .from(STORAGE_BUCKET)
+        .createSignedUrl(item.file_path, parseInt(expiryDays) * 24 * 60 * 60);
+      if (error) throw error;
+      setSharedUrl(data?.signedUrl ?? null);
+    } catch (err: any) {
+      window.alert(`Gagal buat signed URL: ${err?.message || "unknown error"}`);
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  function resetUrl() {
+    setSharedUrl(null);
+    setExpiryDays("");
+  }
 
   async function copy(text: string, key: "url" | "embed") {
     try {
@@ -1663,11 +1779,11 @@ function ShareModal({ item, onClose }: { item: ArchiveRow; onClose: () => void }
             <div className="flex items-center gap-2">
               <input
                 readOnly
-                value={url}
+                value={effectiveUrl}
                 className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-xs font-mono bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100"
               />
               <button
-                onClick={() => copy(url, "url")}
+                onClick={() => copy(effectiveUrl, "url")}
                 className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium text-violet-700 bg-violet-50 hover:bg-violet-100"
               >
                 {copied === "url" ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
@@ -1676,6 +1792,44 @@ function ShareModal({ item, onClose }: { item: ArchiveRow; onClose: () => void }
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
               Siapa pun dengan tautan ini dapat mengunduh file.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+              Kapuhsari (hari)
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min="1"
+                max="365"
+                value={expiryDays}
+                onChange={(e) => setExpiryDays(e.target.value.replace(/\D/g, ""))}
+                placeholder="Mis. 7"
+                className="w-24 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100"
+              />
+              <button
+                onClick={generateSignedUrl}
+                disabled={!expiryDays || generating}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium text-violet-700 bg-violet-50 hover:bg-violet-100 disabled:opacity-60 dark:hover:bg-violet-900/30"
+              >
+                {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Key className="w-3.5 h-3.5" />}
+                Buat Link Kadaluarsa
+              </button>
+              {sharedUrl && (
+                <button
+                  onClick={resetUrl}
+                  className="text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 underline"
+                >
+                  Reset
+                </button>
+              )}
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              {sharedUrl
+                ? `Link kadaluarsa akan valid ${expiryDays} hari.`
+                : "Buat link dengan masa aktif terbatas (signed URL)."}
             </p>
           </div>
 

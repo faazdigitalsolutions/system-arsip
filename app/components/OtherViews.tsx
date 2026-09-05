@@ -436,10 +436,15 @@ const ACTION_META: Record<string, { label: string; color: string; icon: ReactNod
   download: { label: "Mengunduh", color: "bg-indigo-50 text-indigo-700 ring-indigo-200", icon: <FileText className="w-3.5 h-3.5" /> },
 };
 
+const ACTION_FILTERS = ["Mengunggah Arsip", "Menghapus Arsip", "Memulihkan Arsip", "Hapus Permanen", "Memperbarui Arsip"];
+
 export function RiwayatView() {
   const [logs, setLogs] = useState<ActivityLogV2[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [filterDateFrom, setFilterDateFrom] = useState("");
+  const [filterDateTo, setFilterDateTo] = useState("");
+  const [filterAction, setFilterAction] = useState<string>("Semua");
   const [usedFallback, setUsedFallback] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [clearingAll, setClearingAll] = useState(false);
@@ -515,7 +520,6 @@ export function RiwayatView() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return logs;
     return logs.filter((l) => {
       const hay = [
         l.action ?? "",
@@ -525,9 +529,14 @@ export function RiwayatView() {
       ]
         .join(" ")
         .toLowerCase();
-      return hay.includes(q);
+      if (!hay.includes(q)) return false;
+      if (filterAction !== "Semua" && l.action !== filterAction) return false;
+      const d = new Date(l.created_at);
+      if (filterDateFrom && new Date(filterDateFrom) > d) return false;
+      if (filterDateTo && new Date(filterDateTo) < d) return false;
+      return true;
     });
-  }, [logs, search]);
+  }, [logs, search, filterAction, filterDateFrom, filterDateTo]);
 
   return (
     <div className="space-y-6">
@@ -559,6 +568,52 @@ export function RiwayatView() {
             placeholder="Cari aktivitas, user, atau dokumen..."
             className="w-full pl-9 pr-3 py-2.5 text-sm rounded-lg border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100"
           />
+        </div>
+        <div className="flex flex-wrap items-center gap-3 mt-3">
+          <div className="relative">
+            <select
+              value={filterAction}
+              onChange={(e) => setFilterAction(e.target.value)}
+              className="appearance-none pl-3 pr-9 py-2 text-sm rounded-lg border border-slate-200 bg-white dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+            >
+              <option value="Semua">Semua Aksi</option>
+              {ACTION_FILTERS.map((a) => (
+                <option key={a} value={a}>{a}</option>
+              ))}
+            </select>
+            <ChevronDown className="w-4 h-4 absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          </div>
+          <div className="relative">
+            <Calendar className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <input
+              type="date"
+              value={filterDateFrom}
+              onChange={(e) => setFilterDateFrom(e.target.value)}
+              className="pl-9 pr-3 py-2 text-sm rounded-lg border border-slate-200 bg-white dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+            />
+          </div>
+          <span className="text-slate-400 text-sm">—</span>
+          <div className="relative">
+            <Calendar className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <input
+              type="date"
+              value={filterDateTo}
+              onChange={(e) => setFilterDateTo(e.target.value)}
+              className="pl-9 pr-3 py-2 text-sm rounded-lg border border-slate-200 bg-white dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+            />
+          </div>
+          {(filterDateFrom || filterDateTo || filterAction !== "Semua") && (
+            <button
+              onClick={() => {
+                setFilterDateFrom("");
+                setFilterDateTo("");
+                setFilterAction("Semua");
+              }}
+              className="text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 underline"
+            >
+              Reset filter
+            </button>
+          )}
         </div>
       </section>
 
