@@ -42,7 +42,7 @@ DROP POLICY IF EXISTS "activity_logs all" ON public.activity_logs;
 CREATE POLICY "activity_logs all"
   ON public.activity_logs FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
 
--- 4) Tambah kolom password ke tabel users (untuk login per-user, hanya admin yang bisa atur)
+-- 5) Tambah kolom password ke tabel users (untuk login per-user, hanya admin yang bisa atur)
 ALTER TABLE public.users
   ADD COLUMN IF NOT EXISTS password text;
 
@@ -51,7 +51,7 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES ('dokumen-arsip', 'dokumen-arsip', true)
 ON CONFLICT (id) DO NOTHING;
 
--- 6) Refresh cache skema
+-- 7) Refresh cache skema
 NOTIFY pgrst, 'reload schema';
 
 -- Selesai. Setelah Run berhasil, refresh halaman SYTEM ARSIP.

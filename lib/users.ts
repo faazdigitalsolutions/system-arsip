@@ -14,8 +14,8 @@ export async function fetchUsers(): Promise<User[]> {
     .select("*")
     .order("created_at", { ascending: false });
   if (!error && data) return data as User[];
-  // Fallback: kalau tabel users belum ada, pakai mock
-  return MOCK_USERS;
+  // Fallback: kalau tabel users belum ada, pakai mock (copy agar React detect perubahan)
+  return [...MOCK_USERS];
 }
 
 export async function upsertUser(u: Partial<User> & { name: string; email: string; role: UserRole }) {
