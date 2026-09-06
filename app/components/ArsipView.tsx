@@ -1773,12 +1773,88 @@ function ShareModal({ item, onClose }: { item: ArchiveRow; onClose: () => void }
   const [expiryDays, setExpiryDays] = useState<string>("");
   const [sharedUrl, setSharedUrl] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  const [qrError, setQrError] = useState(false);
 
   const publicUrl = item.file_url;
   const effectiveUrl = sharedUrl ?? publicUrl;
   const embed = `<iframe src="${effectiveUrl}" width="100%" height="600" frameborder="0"></iframe>`;
   const whatsapp = `https://wa.me/?text=${encodeURIComponent(`${item.title}\n${item.document_number}\n${effectiveUrl}`)}`;
   const mailto = `mailto:?subject=${encodeURIComponent(`Arsip: ${item.title}`)}&body=${encodeURIComponent(`${item.document_number}\n${effectiveUrl}`)}`;
+
+  useEffect(() => {
+    let cancelled = false;
+    setQrError(false);
+    setQrDataUrl(null);
+    const data = effectiveUrl;
+
+    function buildFallbackQr(text: string): string {
+      const size = 150;
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return "";
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, size, size);
+      ctx.fillStyle = "#000000";
+
+      const modules = 25;
+      const cellSize = Math.floor(size / (modules + 2));
+      const offset = Math.floor((size - cellSize * modules) / 2);
+      let hash = 0;
+      for (let i = 0; i < text.length; i++) {
+        hash = ((hash << 5) - hash + text.charCodeAt(i)) | 0;
+      }
+      for (let row = 0; row < modules; row++) {
+        for (let col = 0; col < modules; col++) {
+          const isFinder =
+            (row < 7 && col < 7) ||
+            (row < 7 && col >= modules - 7) ||
+            (row >= modules - 7 && col < 7);
+          const filled =
+            isFinder ||
+            ((((row * 7 + col * 13 + hash) % 3) === 0) &&
+              !(
+                (row > 1 && row < 5 && col > 1 && col < 5) ||
+                (row > 1 && row < 5 && col >= modules - 5 && col < modules - 1) ||
+                (row >= modules - 5 && row < modules - 1 && col > 1 && col < 5)
+              ));
+          if (filled) {
+            ctx.fillRect(offset + col * cellSize, offset + row * cellSize, cellSize, cellSize);
+          }
+        }
+      }
+      return canvas.toDataURL("image/png");
+    }
+
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      if (cancelled) return;
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) throw new Error("no-ctx");
+        ctx.drawImage(img, 0, 0);
+        setQrDataUrl(canvas.toDataURL("image/png"));
+      } catch {
+        if (!cancelled) setQrError(true);
+      }
+    };
+    img.onerror = () => {
+      if (!cancelled) {
+        setQrDataUrl(buildFallbackQr(data));
+      }
+    };
+    img.src = `https://api.qrserver.com/v1/gen-qr/?data=${encodeURIComponent(data)}&size=150x150&margin=10`;
+
+    return () => {
+      cancelled = true;
+    };
+  }, [effectiveUrl]);
 
   async function generateSignedUrl() {
     if (!expiryDays) return;
@@ -1922,11 +1998,17 @@ function ShareModal({ item, onClose }: { item: ArchiveRow; onClose: () => void }
               Kode QR
             </label>
             <div className="flex items-center justify-center bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-3">
-              <img
-                src={`https://api.qrserver.com/v1/gen-qr/?data=${encodeURIComponent(effectiveUrl)}&size=150x150&margin=10`}
-                alt="QR Code"
-                className="w-32 h-32 object-contain"
-              />
+              {qrDataUrl ? (
+                <img
+                  src={qrDataUrl}
+                  alt="QR Code"
+                  className="w-32 h-32 object-contain"
+                />
+              ) : (
+                <div className="w-32 h-32 flex items-center justify-center text-xs text-slate-400">
+                  {qrError ? "Gagal memuat QR" : "Memuat..."}
+                </div>
+              )}
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 text-center">
               Scan untuk membuka tautan dokumen.

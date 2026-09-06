@@ -98,7 +98,7 @@ export default function HomePage() {
         if (notFound) {
           console.warn(
             "[Archives] Tabel 'archives' tidak ditemukan di Supabase. " +
-              "Menampilkan data dummy. Jalankan supabase/schema.sql di SQL Editor."
+            "Menampilkan data dummy. Jalankan supabase/schema.sql di SQL Editor."
           );
           setArchives(DUMMY_ARCHIVES);
           setUsingMock(true);
@@ -185,71 +185,71 @@ export default function HomePage() {
     return () => document.removeEventListener("keydown", onKeyDown);
   }, []);
 
-   async function softDelete(a: ArchiveRow) {
-     const stamp = new Date().toISOString();
+  async function softDelete(a: ArchiveRow) {
+    const stamp = new Date().toISOString();
 
-     const { error: updErr } = await supabase
-       .from("archives")
-       .update({ deleted_at: stamp })
-       .eq("id", a.id);
+    const { error: updErr } = await supabase
+      .from("archives")
+      .update({ deleted_at: stamp })
+      .eq("id", a.id);
 
-     if (updErr) {
-       const msg = (updErr.message || "").toLowerCase();
-       const missingDeletedAt =
-         msg.includes("deleted_at") ||
-         msg.includes("column") ||
-         msg.includes("schema cache") ||
-         msg.includes("pgrst204");
+    if (updErr) {
+      const msg = (updErr.message || "").toLowerCase();
+      const missingDeletedAt =
+        msg.includes("deleted_at") ||
+        msg.includes("column") ||
+        msg.includes("schema cache") ||
+        msg.includes("pgrst204");
 
-       if (missingDeletedAt) {
-         window.alert(
-           `Kolom deleted_at belum ada di database.\n\n` +
-           `Supaya fitur Sampah & auto-purge 30 hari bisa jalan, jalankan sekali di Supabase Dashboard:\n` +
-           `SQL Editor → New query → paste isi file:\n` +
-           `supabase/migration.sql → Run.\n\n` +
-           `Setelah itu refresh halaman ini.`
-         );
-         throw new Error("Belum menjalankan migration.sql (kolom deleted_at belum ada di Supabase).");
-       }
+      if (missingDeletedAt) {
+        window.alert(
+          `Kolom deleted_at belum ada di database.\n\n` +
+          `Supaya fitur Sampah & auto-purge 30 hari bisa jalan, jalankan sekali di Supabase Dashboard:\n` +
+          `SQL Editor → New query → paste isi file:\n` +
+          `supabase/migration.sql → Run.\n\n` +
+          `Setelah itu refresh halaman ini.`
+        );
+        throw new Error("Belum menjalankan migration.sql (kolom deleted_at belum ada di Supabase).");
+      }
 
-       throw new Error(updErr.message);
-     }
+      throw new Error(updErr.message);
+    }
 
-     try {
-       await recordActivity({
-         action: "Menghapus Arsip",
-         user_name: session?.user.name ?? "Admin",
-         document_title: a.title,
-         details: `Menghapus dokumen ${a.title} (masuk Sampah)`,
-         archive_id: a.id,
-       });
-     } catch {}
+    try {
+      await recordActivity({
+        action: "Menghapus Arsip",
+        user_name: session?.user.name ?? "Admin",
+        document_title: a.title,
+        details: `Menghapus dokumen ${a.title} (masuk Sampah)`,
+        archive_id: a.id,
+      });
+    } catch { }
 
-     const toastId = showToast(
-       `Dokumen "${a.title}" dipindahkan ke Sampah.`,
-       "info",
-       {
-         actionLabel: "Undo",
-         onAction: async () => {
-           const { error: restoreErr } = await supabase
-             .from("archives")
-             .update({ deleted_at: null })
-             .eq("id", a.id);
-           if (restoreErr) {
-             showToast(`Gagal memulihkan dokumen.`, "error");
-           } else {
-             showToast(`Dokumen "${a.title}" dipulihkan.`, "success");
-             await fetchArchives();
-           }
-         },
-         duration: 8000,
-       }
-     );
+    showToast(
+      `Dokumen "${a.title}" dipindahkan ke Sampah.`,
+      "info",
+      {
+        actionLabel: "Undo",
+        onAction: async () => {
+          const { error: restoreErr } = await supabase
+            .from("archives")
+            .update({ deleted_at: null })
+            .eq("id", a.id);
+          if (restoreErr) {
+            showToast(`Gagal memulihkan dokumen.`, "error");
+          } else {
+            showToast(`Dokumen "${a.title}" dipulihkan.`, "success");
+            await fetchArchives();
+          }
+        },
+        duration: 8000,
+      }
+    );
 
-     setTimeout(() => {
-       fetchArchives();
-     }, 8500);
-   }
+    setTimeout(() => {
+      fetchArchives();
+    }, 8500);
+  }
 
   async function permanentDelete(a: ArchiveRow) {
     try {
@@ -267,7 +267,7 @@ export default function HomePage() {
         details: `Hapus permanen dokumen ${a.title}`,
         archive_id: a.id,
       });
-    } catch {}
+    } catch { }
     await fetchArchives();
   }
 
@@ -285,7 +285,7 @@ export default function HomePage() {
         details: `Memulihkan dokumen ${a.title} dari Sampah`,
         archive_id: a.id,
       });
-    } catch {}
+    } catch { }
     await fetchArchives();
   }
 
@@ -300,7 +300,7 @@ export default function HomePage() {
         details: `Memperbarui metadata arsip ${(patch.title as string) ?? a.title}`,
         archive_id: a.id,
       });
-    } catch {}
+    } catch { }
     await fetchArchives();
   }
 
@@ -343,11 +343,10 @@ export default function HomePage() {
                 <button
                   key={t.key}
                   onClick={() => setTab(t.key)}
-                  className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap ${
-                    tab === t.key
+                  className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap ${tab === t.key
                       ? "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-200"
                       : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
-                  }`}
+                    }`}
                 >
                   {t.icon}
                   {t.label}
@@ -403,11 +402,10 @@ export default function HomePage() {
                 <button
                   key={t.key}
                   onClick={() => setTab(t.key)}
-                  className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition whitespace-nowrap ${
-                    tab === t.key
+                  className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition whitespace-nowrap ${tab === t.key
                       ? "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-200"
                       : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
-                  }`}
+                    }`}
                 >
                   {t.icon}
                   {t.label}
@@ -417,57 +415,57 @@ export default function HomePage() {
           </div>
         </header>
 
-         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <style jsx-global>{`
-              @media print {
-                header { display: none !important; }
-                footer { display: none !important; }
-                .no-print { display: none !important; }
-                .print-area { display: block !important; }
-              }
-            `}</style>
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <style jsx-global>{`
+            @media print {
+              header { display: none !important; }
+              footer { display: none !important; }
+              .no-print { display: none !important; }
+              .print-area { display: block !important; }
+            }
+          `}</style>
 
-            <ToastContainer />
-            {tab === "arsip" && (
-             <div className="mb-6 no-print">
-               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                 {(() => {
-                   const active = archives.filter((a) => !a.deleted_at);
-                   const totalSize = active.reduce((acc, a) => acc + (a.file_size ?? 0), 0);
-                   const now = new Date();
-                   const thisMonth = active.filter((a) => {
-                     const d = new Date(a.created_at);
-                     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-                   }).length;
-                   const cats = new Set(active.map((a) => a.category));
-                   const formatBytes = (bytes?: number | null) => {
-                     if (bytes == null) return "-";
-                     if (bytes < 1024) return `${bytes} B`;
-                     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-                     return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
-                   };
-                   const cards = [
-                     { label: "Total Arsip", value: active.length.toLocaleString("id-ID"), sub: "dokumen tersimpan", icon: <Archive className="w-5 h-5 text-white" />, iconClass: "from-violet-600 to-indigo-600" },
-                     { label: "Penyimpanan", value: formatBytes(totalSize), sub: "total ukuran file", icon: <HardDrive className="w-5 h-5 text-white" />, iconClass: "from-sky-500 to-cyan-500" },
-                     { label: "Bulan Ini", value: thisMonth.toLocaleString("id-ID"), sub: "unggahan terbaru", icon: <Layers className="w-5 h-5 text-white" />, iconClass: "from-emerald-500 to-teal-500" },
-                     { label: "Kategori", value: cats.size.toLocaleString("id-ID"), sub: "kategori terpakai", icon: <Archive className="w-5 h-5 text-white" />, iconClass: "from-amber-500 to-orange-500" },
-                   ];
-                   return cards.map((c) => (
-                     <div key={c.label} className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-4 flex items-center gap-3">
-                       <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${c.iconClass} flex items-center justify-center flex-shrink-0`}>
-                         {c.icon}
-                       </div>
-                       <div>
-                         <p className="text-2xl font-semibold text-slate-900 dark:text-white">{c.value}</p>
-                         <p className="text-xs text-slate-500 dark:text-slate-400">{c.label} · {c.sub}</p>
-                       </div>
-                     </div>
-                   ));
-                 })()}
-               </div>
-             </div>
-           )}
-           {tab === "arsip" && (
+          <ToastContainer />
+          {tab === "arsip" && (
+            <div className="mb-6 no-print">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {(() => {
+                  const active = archives.filter((a) => !a.deleted_at);
+                  const totalSize = active.reduce((acc, a) => acc + (a.file_size ?? 0), 0);
+                  const now = new Date();
+                  const thisMonth = active.filter((a) => {
+                    const d = new Date(a.created_at);
+                    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+                  }).length;
+                  const cats = new Set(active.map((a) => a.category));
+                  const formatBytes = (bytes?: number | null) => {
+                    if (bytes == null) return "-";
+                    if (bytes < 1024) return `${bytes} B`;
+                    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+                    return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+                  };
+                  const cards = [
+                    { label: "Total Arsip", value: active.length.toLocaleString("id-ID"), sub: "dokumen tersimpan", icon: <Archive className="w-5 h-5 text-white" />, iconClass: "from-violet-600 to-indigo-600" },
+                    { label: "Penyimpanan", value: formatBytes(totalSize), sub: "total ukuran file", icon: <HardDrive className="w-5 h-5 text-white" />, iconClass: "from-sky-500 to-cyan-500" },
+                    { label: "Bulan Ini", value: thisMonth.toLocaleString("id-ID"), sub: "unggahan terbaru", icon: <Layers className="w-5 h-5 text-white" />, iconClass: "from-emerald-500 to-teal-500" },
+                    { label: "Kategori", value: cats.size.toLocaleString("id-ID"), sub: "kategori terpakai", icon: <Archive className="w-5 h-5 text-white" />, iconClass: "from-amber-500 to-orange-500" },
+                  ];
+                  return cards.map((c) => (
+                    <div key={c.label} className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-4 flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${c.iconClass} flex items-center justify-center flex-shrink-0`}>
+                        {c.icon}
+                      </div>
+                      <div>
+                        <p className="text-2xl font-semibold text-slate-900 dark:text-white">{c.value}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">{c.label} · {c.sub}</p>
+                      </div>
+                    </div>
+                  ));
+                })()}
+              </div>
+            </div>
+          )}
+          {tab === "arsip" && (
             <ArsipView
               archives={archives}
               loading={loading}
