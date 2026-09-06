@@ -88,9 +88,10 @@ function daysRemaining(deletedAt: string | null | undefined): number {
 
 export function SampahView({ archives, loading, onChange }: { archives: ArchiveRow[]; loading: boolean; onChange: () => void }) {
   const trashed = useMemo(() => archives.filter((a) => a.deleted_at), [archives]);
-  const [search, setSearch] = useState("");
-  const [busyId, setBusyId] = useState<string | null>(null);
-  const [autoPurged, setAutoPurged] = useState(0);
+   const [search, setSearch] = useState("");
+   const [busyId, setBusyId] = useState<string | null>(null);
+   const [bulkRestoring, setBulkRestoring] = useState(false);
+   const [autoPurged, setAutoPurged] = useState(0);
 
   useEffect(() => {
     if (loading) return;
@@ -137,6 +138,13 @@ export function SampahView({ archives, loading, onChange }: { archives: ArchiveR
     );
   }, [trashed, search]);
 
+  const [selected, setSelected] = useState<Record<string, boolean>>({});
+
+  const selectedIds = useMemo(
+    () => Object.entries(selected).filter(([, v]) => v).map(([k]) => k),
+    [selected]
+  );
+
   async function restore(item: ArchiveRow) {
     setBusyId(item.id);
     try {
@@ -155,12 +163,42 @@ export function SampahView({ archives, loading, onChange }: { archives: ArchiveR
       onChange();
     } catch (err: any) {
       window.alert(`Gagal restore: ${err?.message || "unknown"}`);
-    } finally {
-      setBusyId(null);
-    }
-  }
+     } finally {
+       setBusyId(null);
+     }
+   }
 
-  async function permanentDelete(item: ArchiveRow) {
+   async function bulkRestore() {
+     if (selectedIds.length === 0) return;
+     setBulkRestoring(true);
+     try {
+       const { error } = await supabase
+         .from("archives")
+         .update({ deleted_at: null })
+         .in("id", selectedIds);
+       if (error) throw new Error(error.message);
+       for (const id of selectedIds) {
+         const item = trashed.find((t) => t.id === id);
+         if (item) {
+           await recordActivity({
+             action: "Memulihkan Arsip",
+             user_name: "Admin",
+             document_title: item.title,
+             details: `Bulk restore ${item.title} dari Sampah`,
+             archive_id: item.id,
+           });
+         }
+       }
+       setSelected({});
+       onChange();
+     } catch (err: any) {
+       window.alert(`Gagal bulk restore: ${err?.message || "unknown"}`);
+     } finally {
+       setBulkRestoring(false);
+     }
+   }
+
+   async function permanentDelete(item: ArchiveRow) {
     if (!window.confirm(`Hapus permanen "${item.title}"? File di storage juga akan dihapus dan tidak bisa dikembalikan.`)) return;
     setBusyId(item.id);
     try {
@@ -219,31 +257,79 @@ export function SampahView({ archives, loading, onChange }: { archives: ArchiveR
             <Loader2 className="w-5 h-5 animate-spin mr-2" />
             Memuat...
           </div>
-        ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-slate-500">
-            <Trash2 className="w-10 h-10 mb-3 text-slate-300" />
-            <p className="text-sm">Sampah kosong. Tidak ada arsip yang dihapus sementara.</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 text-xs uppercase tracking-wider">
-                <tr>
-                  <th className="text-left font-medium px-4 py-3">Nama Dokumen</th>
-                  <th className="text-left font-medium px-4 py-3">Kategori</th>
-                  <th className="text-left font-medium px-4 py-3">Dihapus</th>
-                  <th className="text-left font-medium px-4 py-3">Sisa Hari</th>
-                  <th className="text-left font-medium px-4 py-3">Pengunggah</th>
-                  <th className="text-right font-medium px-4 py-3">Aksi</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {filtered.map((a) => {
-                  const remaining = daysRemaining(a.deleted_at);
-                  const expiring = remaining <= 3;
-                  return (
-                  <tr key={a.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
-                    <td className="px-4 py-3">
+         ) : filtered.length === 0 ? (
+           <div className="flex flex-col items-center justify-center py-20 text-slate-500">
+             <Trash2 className="w-10 h-10 mb-3 text-slate-300" />
+             <p className="text-sm">Sampah kosong. Tidak ada arsip yang dihapus sementara.</p>
+           </div>
+         ) : (
+           <div className="overflow-x-auto">
+             {selectedIds.length > 0 && (
+               <div className="bg-violet-50 dark:bg-violet-900/20 border-b border-violet-200 dark:border-violet-800 px-4 py-2 flex items-center justify-between text-sm">
+                 <span className="text-violet-800 dark:text-violet-200">
+                   {selectedIds.length} dokumen terpilih
+                 </span>
+                 <button
+                   onClick={bulkRestore}
+                   disabled={bulkRestoring}
+                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-60"
+                 >
+                   {bulkRestoring ? (
+                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                   ) : (
+                     <RotateCcw className="w-3.5 h-3.5" />
+                   )}
+                   Restore Terpilih
+                 </button>
+               </div>
+             )}
+             <table className="min-w-full text-sm">
+               <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 text-xs uppercase tracking-wider">
+                 <tr>
+                   <th className="px-4 py-3 w-10">
+                     <input
+                       type="checkbox"
+                       checked={selectedIds.length === filtered.length}
+                       ref={(el) => {
+                         if (el) el.indeterminate = selectedIds.length > 0 && selectedIds.length < filtered.length;
+                       }}
+                       onChange={(e) => {
+                          if (e.target.checked) {
+                            const all: Record<string, boolean> = {};
+                            filtered.forEach((f) => { all[f.id] = true; });
+                            setSelected(all);
+                         } else {
+                           setSelected({});
+                         }
+                       }}
+                       className="rounded border-slate-300 text-violet-600 focus:ring-violet-500"
+                     />
+                   </th>
+                   <th className="text-left font-medium px-4 py-3">Nama Dokumen</th>
+                   <th className="text-left font-medium px-4 py-3">Kategori</th>
+                   <th className="text-left font-medium px-4 py-3">Dihapus</th>
+                   <th className="text-left font-medium px-4 py-3">Sisa Hari</th>
+                   <th className="text-left font-medium px-4 py-3">Pengunggah</th>
+                   <th className="text-right font-medium px-4 py-3">Aksi</th>
+                 </tr>
+               </thead>
+               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                 {filtered.map((a) => {
+                   const remaining = daysRemaining(a.deleted_at);
+                   const expiring = remaining <= 3;
+                   return (
+                   <tr key={a.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
+                     <td className="px-4 py-3 align-top">
+                       <input
+                         type="checkbox"
+                         checked={!!selected[a.id]}
+                         onChange={(e) =>
+                           setSelected((prev) => ({ ...prev, [a.id]: e.target.checked }))
+                         }
+                         className="rounded border-slate-300 text-violet-600 focus:ring-violet-500"
+                       />
+                     </td>
+                     <td className="px-4 py-3">
                       <p className="font-semibold text-slate-900 dark:text-slate-100 truncate max-w-xs">
                         {a.title}
                       </p>
@@ -310,12 +396,29 @@ export function SampahView({ archives, loading, onChange }: { archives: ArchiveR
 export function LaporanView({ archives }: { archives: ArchiveRow[] }) {
   const active = useMemo(() => archives.filter((a) => !a.deleted_at), [archives]);
 
-  const perCategory = useMemo(() => {
-    return CATEGORIES.map((c) => ({
-      category: c,
-      count: active.filter((a) => a.category === c).length,
-    }));
-  }, [active]);
+   const perCategory = useMemo(() => {
+     return CATEGORIES.map((c) => ({
+       category: c,
+       count: active.filter((a) => a.category === c).length,
+     }));
+   }, [active]);
+
+   const fileTypeStats = useMemo(() => {
+     const extMap: Record<string, { count: number; size: number }> = {};
+     active.forEach((a) => {
+       const fn = a.file_name ?? "";
+       const idx = fn.lastIndexOf(".");
+       const ext = idx > 0 ? fn.slice(idx + 1).toUpperCase() : "TANPA EKSTEN";
+       if (!extMap[ext]) extMap[ext] = { count: 0, size: 0 };
+       extMap[ext].count++;
+       extMap[ext].size += a.file_size ?? 0;
+     });
+     return Object.entries(extMap)
+       .map(([ext, { count, size }]) => ({ ext, count, size }))
+       .sort((a, b) => b.count - a.count);
+   }, [active]);
+
+   const maxFileType = Math.max(1, ...fileTypeStats.map((f) => f.count));
 
   const monthlyTrend = useMemo(() => {
     const now = new Date();
@@ -401,6 +504,48 @@ export function LaporanView({ archives }: { archives: ArchiveRow[] }) {
           </div>
         </div>
       </section>
+
+      <section className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-6">
+        <h2 className="font-semibold text-slate-900 dark:text-white mb-1">Statistik Tipe Berkas</h2>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">Distribusi per ekstensi</p>
+        <FileTypeStats data={fileTypeStats} max={maxFileType} />
+      </section>
+    </div>
+  );
+}
+
+function FileTypeStats({ data, max }: { data: { ext: string; count: number; size: number }[]; max: number }) {
+  const colors = [
+    "from-violet-600 to-indigo-600",
+    "from-sky-500 to-cyan-500",
+    "from-emerald-500 to-teal-500",
+    "from-amber-500 to-orange-500",
+    "from-pink-500 to-rose-500",
+    "from-purple-500 to-fuchsia-500",
+  ];
+  return (
+    <div className="space-y-3">
+      {data.length === 0 ? (
+        <p className="text-xs text-slate-500">Belum ada dokumen.</p>
+      ) : (
+        data.map((f, i) => {
+          const pct = (f.count / max) * 100;
+          return (
+            <div key={f.ext}>
+              <div className="flex items-center justify-between text-sm mb-1">
+                <span className="font-mono text-slate-700 dark:text-slate-200">.{f.ext}</span>
+                <span className="font-mono text-xs text-slate-500">{f.count} · {formatBytes(f.size)}</span>
+              </div>
+              <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                <div
+                  className={`h-full bg-gradient-to-r ${colors[i % colors.length]} rounded-full`}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+            </div>
+          );
+        })
+      )}
     </div>
   );
 }

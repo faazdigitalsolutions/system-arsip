@@ -129,10 +129,14 @@ export function ArsipView({
   onUpdate,
   companyName = "arsip",
 }: ArsipViewProps) {
-  const [search, setSearch] = useState("");
-  const [filterCat, setFilterCat] = useState<"Semua" | Category>("Semua");
-  const [filterStatus, setFilterStatus] = useState<"Semua" | Status>("Semua");
-  const [sort, setSort] = useState<SortKey>("newest");
+   const [search, setSearch] = useState("");
+   const [filterCat, setFilterCat] = useState<"Semua" | Category>("Semua");
+   const [filterStatus, setFilterStatus] = useState<"Semua" | Status>("Semua");
+   const [filterDateFrom, setFilterDateFrom] = useState("");
+   const [filterDateTo, setFilterDateTo] = useState("");
+   const [sort, setSort] = useState<SortKey>("newest");
+   const [sortBy, setSortBy] = useState<string>("created_at");
+   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [showAdv, setShowAdv] = useState(false);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [openUpload, setOpenUpload] = useState(false);
@@ -142,36 +146,44 @@ export function ArsipView({
   const [editItem, setEditItem] = useState<ArchiveRow | null>(null);
   const [shareItem, setShareItem] = useState<ArchiveRow | null>(null);
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    const list = archives.filter((a) => {
-      if (a.deleted_at) return false;
-      const matchCat = filterCat === "Semua" || a.category === filterCat;
-      if (!matchCat) return false;
-      const matchStatus = filterStatus === "Semua" || a.status === filterStatus;
-      if (!matchStatus) return false;
-      if (!q) return true;
-      return (
-        a.title.toLowerCase().includes(q) ||
-        a.document_number.toLowerCase().includes(q) ||
-        (a.description ?? "").toLowerCase().includes(q) ||
-        (a.file_name ?? "").toLowerCase().includes(q)
-      );
-    });
-    return [...list].sort((a, b) => {
-      switch (sort) {
-        case "oldest":
-          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-        case "title_asc":
-          return a.title.localeCompare(b.title);
-        case "title_desc":
-          return b.title.localeCompare(a.title);
-        case "newest":
-        default:
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-      }
-    });
-  }, [archives, search, filterCat, filterStatus, sort]);
+   const filtered = useMemo(() => {
+     const q = search.trim().toLowerCase();
+     const list = archives.filter((a) => {
+       if (a.deleted_at) return false;
+       const matchCat = filterCat === "Semua" || a.category === filterCat;
+       if (!matchCat) return false;
+       const matchStatus = filterStatus === "Semua" || a.status === filterStatus;
+       if (!matchStatus) return false;
+       if (filterDateFrom) {
+         const d = new Date(a.created_at);
+         if (d < new Date(filterDateFrom)) return false;
+       }
+       if (filterDateTo) {
+         const d = new Date(a.created_at);
+         if (d > new Date(filterDateTo)) return false;
+       }
+       if (!q) return true;
+       return (
+         a.title.toLowerCase().includes(q) ||
+         a.document_number.toLowerCase().includes(q) ||
+         (a.description ?? "").toLowerCase().includes(q) ||
+         (a.file_name ?? "").toLowerCase().includes(q)
+       );
+     });
+     return [...list].sort((a, b) => {
+       let cmp = 0;
+       if (sortBy === "title") {
+         cmp = a.title.localeCompare(b.title);
+       } else if (sortBy === "size") {
+         cmp = (a.file_size ?? 0) - (b.file_size ?? 0);
+       } else if (sortBy === "number") {
+         cmp = a.document_number.localeCompare(b.document_number);
+       } else {
+         cmp = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+       }
+       return sortDir === "asc" ? cmp : -cmp;
+     });
+   }, [archives, search, filterCat, filterStatus, filterDateFrom, filterDateTo, sortBy, sortDir]);
 
   const stats = useMemo(() => {
     const active = archives.filter((a) => !a.deleted_at);
@@ -379,8 +391,9 @@ export function ArsipView({
             <Printer className="w-4 h-4" />
             Cetak / PDF
           </button>
-             <button
-               onClick={() => setOpenUpload(true)}
+              <button
+                id="btn-upload"
+                onClick={() => setOpenUpload(true)}
                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-sm font-medium hover:from-violet-700 hover:to-indigo-700 shadow-sm no-print"
           >
             <Plus className="w-4 h-4" />
@@ -404,6 +417,7 @@ export function ArsipView({
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            id="search-input"
             placeholder="Cari judul, nama file, atau deskripsi..."
             className="w-full pl-9 pr-3 py-2.5 text-sm rounded-lg border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100"
           />
@@ -423,22 +437,47 @@ export function ArsipView({
             <ChevronDown className="w-4 h-4 absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
           </div>
           <div className="relative">
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value as "Semua" | Status)}
-              className="appearance-none pl-3 pr-9 py-2.5 text-sm rounded-lg border border-slate-200 bg-white dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
-            >
-              <option value="Semua">Semua Status</option>
-              {STATUSES.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
-            <ChevronDown className="w-4 h-4 absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <Calendar className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <input
+              type="date"
+              value={filterDateFrom}
+              onChange={(e) => setFilterDateFrom(e.target.value)}
+              className="pl-9 pr-3 py-2.5 text-sm rounded-lg border border-slate-200 bg-white dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+            />
           </div>
+          <span className="text-slate-300 text-sm">—</span>
+          <div className="relative">
+            <Calendar className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <input
+              type="date"
+              value={filterDateTo}
+              onChange={(e) => setFilterDateTo(e.target.value)}
+              className="pl-9 pr-3 py-2.5 text-sm rounded-lg border border-slate-200 bg-white dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+            />
+          </div>
+          {(filterDateFrom || filterDateTo || filterCat !== "Semua" || filterStatus !== "Semua") && (
+            <button
+              onClick={() => {
+                setFilterDateFrom("");
+                setFilterDateTo("");
+                setFilterCat("Semua");
+                setFilterStatus("Semua");
+              }}
+              className="text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 underline"
+            >
+              Reset
+            </button>
+          )}
           <div className="relative">
             <select
               value={sort}
-              onChange={(e) => setSort(e.target.value as SortKey)}
+              onChange={(e) => {
+                setSort(e.target.value as SortKey);
+                if (e.target.value === "newest") { setSortBy("created_at"); setSortDir("desc"); }
+                if (e.target.value === "oldest") { setSortBy("created_at"); setSortDir("asc"); }
+                if (e.target.value === "title_asc") { setSortBy("title"); setSortDir("asc"); }
+                if (e.target.value === "title_desc") { setSortBy("title"); setSortDir("desc"); }
+              }}
               className="appearance-none pl-3 pr-9 py-2.5 text-sm rounded-lg border border-slate-200 bg-white dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
             >
               {SORTS.map((s) => (
@@ -573,11 +612,38 @@ export function ArsipView({
                     />
                   </th>
                   <th className="text-left font-medium px-4 py-3">Nama Dokumen</th>
-                  <th className="text-left font-medium px-4 py-3">Kategori</th>
+                  <th className="text-left font-medium px-4 py-3">Nomor Arsip</th>
+                  <th
+                    className="text-left font-medium px-4 py-3 cursor-pointer select-none"
+                    onClick={() => {
+                      setSortBy("title");
+                      setSortDir(sortDir === "asc" ? "desc" : "asc");
+                    }}
+                  >
+                    Kategori{" "}
+                    {sortBy === "title" && (sortDir === "asc" ? "↑" : "↓")}
+                  </th>
                   <th className="text-left font-medium px-4 py-3">Status</th>
-                  <th className="text-left font-medium px-4 py-3">Retensi</th>
-                  <th className="text-left font-medium px-4 py-3">Ukuran</th>
-                  <th className="text-left font-medium px-4 py-3">Tanggal Diunggah</th>
+                  <th
+                    className="text-left font-medium px-4 py-3 cursor-pointer select-none"
+                    onClick={() => {
+                      setSortBy("size");
+                      setSortDir(sortDir === "asc" ? "desc" : "asc");
+                    }}
+                  >
+                    Ukuran{" "}
+                    {sortBy === "size" && (sortDir === "asc" ? "↑" : "↓")}
+                  </th>
+                  <th
+                    className="text-left font-medium px-4 py-3 cursor-pointer select-none"
+                    onClick={() => {
+                      setSortBy("created_at");
+                      setSortDir(sortDir === "asc" ? "desc" : "asc");
+                    }}
+                  >
+                    Tanggal Diunggah{" "}
+                    {sortBy === "created_at" && (sortDir === "asc" ? "↑" : "↓")}
+                  </th>
                   <th className="text-left font-medium px-4 py-3">Pengunggah</th>
                   <th className="text-right font-medium px-4 py-3">Aksi</th>
                 </tr>
@@ -612,9 +678,6 @@ export function ArsipView({
                             <p className="font-semibold text-slate-900 dark:text-slate-100 truncate max-w-xs">
                               {a.title}
                             </p>
-                            <p className="font-mono text-[11px] text-slate-500 mt-0.5">
-                              {a.document_number}
-                            </p>
                             {a.description && (
                               <p className="text-xs text-slate-500 mt-1 line-clamp-1 max-w-xs">
                                 {a.description}
@@ -622,6 +685,11 @@ export function ArsipView({
                             )}
                           </div>
                         </div>
+                      </td>
+                      <td className="px-4 py-3 align-top">
+                        <p className="font-mono text-[11px] text-slate-500">
+                          {a.document_number}
+                        </p>
                       </td>
                       <td className="px-4 py-3 align-top">
                         <span
@@ -635,11 +703,6 @@ export function ArsipView({
                           className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ring-1 ring-inset ${stt.bg} ${stt.text} ${stt.ring}`}
                         >
                           {a.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 align-top">
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200">
-                          {a.retention || "Aktif"}
                         </span>
                       </td>
                       <td className="px-4 py-3 align-top text-slate-600 dark:text-slate-300">
@@ -1852,6 +1915,22 @@ function ShareModal({ item, onClose }: { item: ArchiveRow; onClose: () => void }
                 {copied === "embed" ? "Tersalin" : "Salin"}
               </button>
             </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+              Kode QR
+            </label>
+            <div className="flex items-center justify-center bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-3">
+              <img
+                src={`https://api.qrserver.com/v1/gen-qr/?data=${encodeURIComponent(effectiveUrl)}&size=150x150&margin=10`}
+                alt="QR Code"
+                className="w-32 h-32 object-contain"
+              />
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 text-center">
+              Scan untuk membuka tautan dokumen.
+            </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">

@@ -26,6 +26,7 @@ import { ArsipView } from "./components/ArsipView";
 import { SampahView, LaporanView, RiwayatView, PenggunaView, PengaturanView, SETTINGS_EVENT } from "./components/OtherViews";
 import { LoginView } from "./components/LoginView";
 import { getSession, logout, type AuthSession } from "@/lib/auth";
+import { ToastContainer, showToast } from "@/lib/toast";
 
 const DUMMY_ARCHIVES: ArchiveRow[] = [];
 
@@ -50,7 +51,17 @@ export default function HomePage() {
 
   useEffect(() => {
     setSession(getSession());
+    if (typeof window !== "undefined") {
+      setDark(window.localStorage.getItem("sytem-arsip:dark") === "1");
+    }
   }, []);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("sytem-arsip:dark", dark ? "1" : "0");
+      window.dispatchEvent(new CustomEvent("theme-changed", { detail: dark }));
+    }
+  }, [dark]);
 
   useEffect(() => {
     (async () => {
@@ -133,48 +144,112 @@ export default function HomePage() {
     return () => clearInterval(interval);
   }, [fetchArchives]);
 
-  async function softDelete(a: ArchiveRow) {
-    const stamp = new Date().toISOString();
+  useEffect(() => {
+    const TIMEOUT_MS = 30 * 60 * 1000;
+    let timer: NodeJS.Timeout;
+    const reset = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        logout();
+        setSession(null);
+        window.location.reload();
+      }, TIMEOUT_MS);
+    };
+    const events: Array<"mousedown" | "keydown" | "touchstart"> = ["mousedown", "keydown", "touchstart"];
+    events.forEach((e) => document.addEventListener(e, reset));
+    reset();
+    return () => {
+      events.forEach((e) => document.removeEventListener(e, reset));
+      clearTimeout(timer);
+    };
+  }, []);
 
-    const { error: updErr } = await supabase
-      .from("archives")
-      .update({ deleted_at: stamp })
-      .eq("id", a.id);
-
-    if (!updErr) {
-      try {
-        await recordActivity({
-          action: "Menghapus Arsip",
-          user_name: session?.user.name ?? "Admin",
-          document_title: a.title,
-          details: `Menghapus dokumen ${a.title} (masuk Sampah)`,
-          archive_id: a.id,
-        });
-      } catch {}
-      await fetchArchives();
-      return;
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.target instanceof HTMLInputElement) return;
+      if (e.target instanceof HTMLTextAreaElement) return;
+      if (e.target instanceof HTMLSelectElement) return;
+      const t = e.key.toLowerCase();
+      if (t === "n" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        const evt = new MouseEvent("click", { bubbles: true });
+        document.getElementById("btn-upload")?.dispatchEvent(evt);
+      }
+      if (t === "/" && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        const el = document.getElementById("search-input") as HTMLInputElement | null;
+        el?.focus();
+      }
     }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, []);
 
-    const msg = (updErr.message || "").toLowerCase();
-    const missingDeletedAt =
-      msg.includes("deleted_at") ||
-      msg.includes("column") ||
-      msg.includes("schema cache") ||
-      msg.includes("pgrst204");
+   async function softDelete(a: ArchiveRow) {
+     const stamp = new Date().toISOString();
 
-    if (missingDeletedAt) {
-      window.alert(
-        `Kolom deleted_at belum ada di database.\n\n` +
-        `Supaya fitur Sampah & auto-purge 30 hari bisa jalan, jalankan sekali di Supabase Dashboard:\n` +
-        `SQL Editor → New query → paste isi file:\n` +
-        `supabase/migration.sql → Run.\n\n` +
-        `Setelah itu refresh halaman ini.`
-      );
-      throw new Error("Belum menjalankan migration.sql (kolom deleted_at belum ada di Supabase).");
-    }
+     const { error: updErr } = await supabase
+       .from("archives")
+       .update({ deleted_at: stamp })
+       .eq("id", a.id);
 
-    throw new Error(updErr.message);
-  }
+     if (updErr) {
+       const msg = (updErr.message || "").toLowerCase();
+       const missingDeletedAt =
+         msg.includes("deleted_at") ||
+         msg.includes("column") ||
+         msg.includes("schema cache") ||
+         msg.includes("pgrst204");
+
+       if (missingDeletedAt) {
+         window.alert(
+           `Kolom deleted_at belum ada di database.\n\n` +
+           `Supaya fitur Sampah & auto-purge 30 hari bisa jalan, jalankan sekali di Supabase Dashboard:\n` +
+           `SQL Editor → New query → paste isi file:\n` +
+           `supabase/migration.sql → Run.\n\n` +
+           `Setelah itu refresh halaman ini.`
+         );
+         throw new Error("Belum menjalankan migration.sql (kolom deleted_at belum ada di Supabase).");
+       }
+
+       throw new Error(updErr.message);
+     }
+
+     try {
+       await recordActivity({
+         action: "Menghapus Arsip",
+         user_name: session?.user.name ?? "Admin",
+         document_title: a.title,
+         details: `Menghapus dokumen ${a.title} (masuk Sampah)`,
+         archive_id: a.id,
+       });
+     } catch {}
+
+     const toastId = showToast(
+       `Dokumen "${a.title}" dipindahkan ke Sampah.`,
+       "info",
+       {
+         actionLabel: "Undo",
+         onAction: async () => {
+           const { error: restoreErr } = await supabase
+             .from("archives")
+             .update({ deleted_at: null })
+             .eq("id", a.id);
+           if (restoreErr) {
+             showToast(`Gagal memulihkan dokumen.`, "error");
+           } else {
+             showToast(`Dokumen "${a.title}" dipulihkan.`, "success");
+             await fetchArchives();
+           }
+         },
+         duration: 8000,
+       }
+     );
+
+     setTimeout(() => {
+       fetchArchives();
+     }, 8500);
+   }
 
   async function permanentDelete(a: ArchiveRow) {
     try {
@@ -343,15 +418,17 @@ export default function HomePage() {
         </header>
 
          <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-           <style jsx-global>{`
-             @media print {
-               header { display: none !important; }
-               .no-print { display: none !important; }
-               .print-area { display: block !important; }
-             }
-           `}</style>
+            <style jsx-global>{`
+              @media print {
+                header { display: none !important; }
+                footer { display: none !important; }
+                .no-print { display: none !important; }
+                .print-area { display: block !important; }
+              }
+            `}</style>
 
-           {tab === "arsip" && (
+            <ToastContainer />
+            {tab === "arsip" && (
              <div className="mb-6 no-print">
                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                  {(() => {
