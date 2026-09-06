@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Archive, LogIn, ShieldCheck, User as UserIcon, X, Eye, EyeOff } from "lucide-react";
+import { Archive, Circle, Key, LogIn, ShieldCheck, User as UserIcon, X, Eye, EyeOff } from "lucide-react";
 import { MOCK_USERS } from "@/lib/users";
 import { login, type AuthSession } from "@/lib/auth";
 
@@ -133,6 +133,57 @@ export function LoginView({ onLogin }: { onLogin: (s: AuthSession) => void }) {
               </div>
             </div>
           )}
+
+          <div className="border-t border-slate-200 dark:border-slate-800 pt-4">
+            <p className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">
+              Daftar Akun Tersedia
+            </p>
+            <div className="space-y-1.5 max-h-40 overflow-y-auto">
+              {MOCK_USERS.filter((u) => u.active).map((u) => (
+                <div
+                  key={u.id}
+                  className={`flex items-center gap-2.5 p-2 rounded-lg border text-xs transition cursor-pointer ${
+                    selectedId === u.id
+                      ? "border-violet-400 bg-violet-50 dark:bg-violet-900/20"
+                      : "border-slate-200 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600"
+                  }`}
+                  onClick={() => {
+                    setSelectedId(u.id);
+                    setPassword("");
+                    setErr(null);
+                  }}
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-slate-900 dark:text-slate-100 truncate">
+                      {u.name}
+                    </p>
+                    <p className="text-slate-500 dark:text-slate-400 truncate">
+                      {u.email}
+                    </p>
+                  </div>
+                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                    u.role === "Admin"
+                      ? "bg-violet-100 text-violet-700"
+                      : u.role === "Staff"
+                      ? "bg-sky-100 text-sky-700"
+                      : "bg-slate-100 text-slate-600"
+                  }`}>
+                    {u.role}
+                  </span>
+                  {u.password ? (
+                    <Key className="w-3 h-3 text-amber-500" aria-label="Password diatur" />
+                  ) : (
+                    <Circle className="w-3 h-3 text-emerald-500" aria-label="Login tanpa password" />
+                  )}
+                </div>
+              ))}
+              {MOCK_USERS.filter((u) => u.active).length === 0 && (
+                <p className="text-xs text-slate-500 text-center py-4">
+                  Belum ada pengguna aktif. Hubungi administrator.
+                </p>
+              )}
+            </div>
+          </div>
 
           {err && (
             <div className="flex items-center gap-2 text-sm text-rose-600 font-medium">
